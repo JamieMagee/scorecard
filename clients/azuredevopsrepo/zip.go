@@ -110,7 +110,7 @@ func (z *zipHandler) getZipfile() error {
 	queryParams.Add("resolveLfs", "true")
 	queryParams.Add("$format", "zip")
 
-	if z.repourl.commitSHA == "HEAD" {
+	if z.repourl.commitSHA == HeadCommit {
 		queryParams.Add("versionDescriptor.versionType", "branch")
 		queryParams.Add("versionDescriptor.version", z.repourl.defaultBranch)
 	} else {

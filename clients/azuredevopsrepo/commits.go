@@ -63,7 +63,7 @@ type (
 func (handler *commitsHandler) setup() error {
 	handler.once.Do(func() {
 		var itemVersion git.GitVersionDescriptor
-		if handler.repourl.commitSHA == "HEAD" {
+		if handler.repourl.commitSHA == HeadCommit {
 			itemVersion = git.GitVersionDescriptor{
 				VersionType: &git.GitVersionTypeValues.Branch,
 				Version:     &handler.repourl.defaultBranch,
