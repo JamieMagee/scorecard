@@ -28,6 +28,7 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/git"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/projectanalysis"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/search"
+	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/servicehooks"
 	"github.com/microsoft/azure-devops-go-api/azuredevops/v7/workitemtracking"
 
 	"github.com/ossf/scorecard/v5/clients"
@@ -40,19 +41,21 @@ var (
 )
 
 type Client struct {
-	azdoClient   git.Client
-	ctx          context.Context
-	repourl      *Repo
-	repo         *git.GitRepository
-	audit        *auditHandler
-	branches     *branchesHandler
-	commits      *commitsHandler
-	contributors *contributorsHandler
-	languages    *languagesHandler
-	search       *searchHandler
-	workItems    *workItemsHandler
-	zip          *zipHandler
-	commitDepth  int
+	azdoClient    git.Client
+	ctx           context.Context
+	repourl       *Repo
+	repo          *git.GitRepository
+	audit         *auditHandler
+	branches      *branchesHandler
+	commits       *commitsHandler
+	contributors  *contributorsHandler
+	languages     *languagesHandler
+	search        *searchHandler
+	searchCommits *searchCommitsHandler
+	servicehooks  *servicehooksHandler
+	workItems     *workItemsHandler
+	zip           *zipHandler
+	commitDepth   int
 }
 
 func (c *Client) InitRepo(inputRepo clients.Repo, commitSHA string, commitDepth int) error {
@@ -102,6 +105,10 @@ func (c *Client) InitRepo(inputRepo clients.Repo, commitSHA string, commitDepth 
 
 	c.search.init(c.ctx, c.repourl)
 
+	c.searchCommits.init(c.ctx, c.repourl)
+
+	c.servicehooks.init(c.ctx, c.repourl)
+
 	c.workItems.init(c.ctx, c.repourl)
 
 	c.zip.init(c.ctx, c.repourl)
@@ -130,7 +137,7 @@ func (c *Client) GetFileReader(filename string) (io.ReadCloser, error) {
 }
 
 func (c *Client) GetBranch(branch string) (*clients.BranchRef, error) {
-	return nil, clients.ErrUnsupportedFeature
+	return c.branches.getBranch(branch)
 }
 
 func (c *Client) GetCreatedAt() (time.Time, error) {
@@ -195,7 +202,7 @@ func (c *Client) ListStatuses(ref string) ([]clients.Status, error) {
 }
 
 func (c *Client) ListWebhooks() ([]clients.Webhook, error) {
-	return nil, clients.ErrUnsupportedFeature
+	return c.servicehooks.listWebhooks()
 }
 
 func (c *Client) ListProgrammingLanguages() ([]clients.Language, error) {
@@ -207,7 +214,7 @@ func (c *Client) Search(request clients.SearchRequest) (clients.SearchResponse, 
 }
 
 func (c *Client) SearchCommits(request clients.SearchCommitsOptions) ([]clients.Commit, error) {
-	return nil, clients.ErrUnsupportedFeature
+	return c.searchCommits.searchCommits(request)
 }
 
 func (c *Client) Close() error {
@@ -246,6 +253,8 @@ func CreateAzureDevOpsClientWithToken(ctx context.Context, token string, repo cl
 		return nil, fmt.Errorf("could not create azure devops search client with error: %w", err)
 	}
 
+	servicehooksClient := servicehooks.NewClient(ctx, connection)
+
 	workItemsClient, err := workitemtracking.NewClient(ctx, connection)
 	if err != nil {
 		return nil, fmt.Errorf("could not create azure devops work item tracking client with error: %w", err)
@@ -271,6 +280,12 @@ func CreateAzureDevOpsClientWithToken(ctx context.Context, token string, repo cl
 		},
 		search: &searchHandler{
 			searchClient: searchClient,
+		},
+		searchCommits: &searchCommitsHandler{
+			gitClient: gitClient,
+		},
+		servicehooks: &servicehooksHandler{
+			servicehooksClient: servicehooksClient,
 		},
 		workItems: &workItemsHandler{
 			workItemsClient: workItemsClient,
